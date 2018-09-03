@@ -634,6 +634,10 @@ LayoutBuilder.prototype.processLeaf = function (node) {
 		}
 	}
 
+	if (node._anchorRef) {
+		line._anchorRef = node._anchorRef._nodeRef;
+	}
+
 	while (line && (maxHeight === -1 || currentHeight < maxHeight)) {
 		var positions = this.writer.addLine(line);
 		node.positions.push(positions);

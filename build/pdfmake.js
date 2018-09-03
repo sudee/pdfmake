@@ -13656,6 +13656,12 @@ function renderLine(line, x, y, pdfKitDoc) {
 		preparePageNodeRefLine(line._pageNodeRef, line.inlines[0]);
 	}
 
+	var anchorPageNumber;
+	if (line._anchorRef && line._anchorRef.positions) {
+		// Compute the anchor destination page
+		anchorPageNumber = line._anchorRef.positions[0].pageNumber.toString();
+	}
+
 	x = x || 0;
 	y = y || 0;
 
@@ -13691,6 +13697,11 @@ function renderLine(line, x, y, pdfKitDoc) {
 		pdfKitDoc._font = inline.font;
 		pdfKitDoc.fontSize(inline.fontSize);
 		pdfKitDoc.text(inline.text, x + inline.x, y + shiftToBaseline, options);
+
+		if (anchorPageNumber !== undefined) {
+			// Add link to the anchor page on each word in the line
+			inline.linkToPage = anchorPageNumber;
+		}
 
 		if (inline.linkToPage) {
 			var _ref = pdfKitDoc.ref({Type: 'Action', S: 'GoTo', D: [inline.linkToPage, 0, 0]}).end();
@@ -47181,6 +47192,10 @@ LayoutBuilder.prototype.processLeaf = function (node) {
 		}
 	}
 
+	if (node._anchorRef) {
+		line._anchorRef = node._anchorRef._nodeRef;
+	}
+
 	while (line && (maxHeight === -1 || currentHeight < maxHeight)) {
 		var positions = this.writer.addLine(line);
 		node.positions.push(positions);
@@ -47468,6 +47483,13 @@ DocPreprocessor.prototype.preprocessText = function (node) {
 		node._textRef = this.nodeReferences[node.textReference];
 	}
 
+	if (node.anchor) {
+		if (!this.nodeReferences[node.anchor]) {
+			this.nodeReferences[node.anchor] = { _nodeRef: {}, _pseudo: true };
+		}
+ 		node._anchorRef = this.nodeReferences[node.anchor];
+	}
+
 	if (node.text && node.text.text) {
 		node.text = [this.preprocessNode(node.text)];
 	} else if (isArray(node.text)) {
@@ -47534,6 +47556,7 @@ DocPreprocessor.prototype._getNodeForNodeRef = function (node) {
 }
 
 module.exports = DocPreprocessor;
+
 /* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(1).Buffer))
 
 /***/ }),
@@ -48139,6 +48162,12 @@ DocMeasure.prototype.measureTable = function (node) {
 			},
 			vLineColor: function (i, node) {
 				return 'black';
+			},
+			hLineStyle: function (i, node) {
+				return null;
+			},
+			vLineStyle: function (i, node) {
+				return null;
 			},
 			paddingLeft: function (i, node) {
 				return 4;
@@ -49198,7 +49227,7 @@ PageElementWriter.prototype.moveToNextPage = function (pageOrientation) {
 	this.writer.tracker.emit('pageChanged', {
 		prevPage: nextPage.prevPage,
 		prevY: nextPage.prevY,
-		y: nextPage.y
+		y: this.writer.context.y
 	});
 };
 
@@ -49754,6 +49783,12 @@ TableProcessor.prototype.beginRow = function (rowIndex, writer) {
 TableProcessor.prototype.drawHorizontalLine = function (lineIndex, writer, overrideY) {
 	var lineWidth = this.layout.hLineWidth(lineIndex, this.tableNode);
 	if (lineWidth) {
+		var style = this.layout.hLineStyle(lineIndex, this.tableNode);
+		var dash;
+		if (style && style.dash) {
+			dash = style.dash;
+		}
+
 		var offset = lineWidth / 2;
 		var currentLine = null;
 		var body = this.tableNode.table.body;
@@ -49801,6 +49836,7 @@ TableProcessor.prototype.drawHorizontalLine = function (lineIndex, writer, overr
 						y1: y,
 						y2: y,
 						lineWidth: lineWidth,
+						dash: dash,
 						lineColor: isFunction(this.layout.hLineColor) ? this.layout.hLineColor(lineIndex, this.tableNode) : this.layout.hLineColor
 					}, false, overrideY);
 					currentLine = null;
@@ -49817,6 +49853,11 @@ TableProcessor.prototype.drawVerticalLine = function (x, y0, y1, vLineIndex, wri
 	if (width === 0) {
 		return;
 	}
+	var style = this.layout.vLineStyle(vLineIndex, this.tableNode);
+	var dash;
+	if (style && style.dash) {
+		dash = style.dash;
+	}
 	writer.addVector({
 		type: 'line',
 		x1: x + width / 2,
@@ -49824,6 +49865,7 @@ TableProcessor.prototype.drawVerticalLine = function (x, y0, y1, vLineIndex, wri
 		y1: y0,
 		y2: y1,
 		lineWidth: width,
+		dash: dash,
 		lineColor: isFunction(this.layout.vLineColor) ? this.layout.vLineColor(vLineIndex, this.tableNode) : this.layout.vLineColor
 	}, false, true);
 };
@@ -49831,7 +49873,6 @@ TableProcessor.prototype.drawVerticalLine = function (x, y0, y1, vLineIndex, wri
 TableProcessor.prototype.endTable = function (writer) {
 	if (this.cleanUpRepeatables) {
 		writer.popFromRepeatables();
-		this.headerRepeatableHeight = null;
 	}
 };
 
@@ -49863,10 +49904,6 @@ TableProcessor.prototype.endRow = function (rowIndex, writer, pageBreaks) {
 			ys[ys.length - 1].y1 = pageBreak.prevY;
 
 			ys.push({y0: pageBreak.y, page: pageBreak.prevPage + 1});
-
-			if (this.headerRepeatableHeight) {
-				ys[ys.length - 1].y0 += this.headerRepeatableHeight;
-			}
 		}
 	}
 
@@ -49983,7 +50020,6 @@ TableProcessor.prototype.endRow = function (rowIndex, writer, pageBreaks) {
 	}
 
 	if (this.headerRepeatable && (rowIndex === (this.rowsWithoutPageBreak - 1) || rowIndex === this.tableNode.table.body.length - 1)) {
-		this.headerRepeatableHeight = this.headerRepeatable.height;
 		writer.commitUnbreakableBlock();
 		writer.pushToRepeatables(this.headerRepeatable);
 		this.cleanUpRepeatables = true;

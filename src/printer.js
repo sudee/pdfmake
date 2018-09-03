@@ -397,6 +397,12 @@ function renderLine(line, x, y, pdfKitDoc) {
 		preparePageNodeRefLine(line._pageNodeRef, line.inlines[0]);
 	}
 
+	var anchorPageNumber;
+	if (line._anchorRef && line._anchorRef.positions) {
+		// Compute the anchor destination page
+		anchorPageNumber = line._anchorRef.positions[0].pageNumber.toString();
+	}
+
 	x = x || 0;
 	y = y || 0;
 
@@ -432,6 +438,11 @@ function renderLine(line, x, y, pdfKitDoc) {
 		pdfKitDoc._font = inline.font;
 		pdfKitDoc.fontSize(inline.fontSize);
 		pdfKitDoc.text(inline.text, x + inline.x, y + shiftToBaseline, options);
+
+		if (anchorPageNumber !== undefined) {
+			// Add link to the anchor page on each word in the line
+			inline.linkToPage = anchorPageNumber;
+		}
 
 		if (inline.linkToPage) {
 			var _ref = pdfKitDoc.ref({Type: 'Action', S: 'GoTo', D: [inline.linkToPage, 0, 0]}).end();

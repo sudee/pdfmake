@@ -245,6 +245,6 @@ DocPreprocessor.prototype._getNodeForNodeRef = function (node) {
 	}
 
 	return node;
-}
+};
 
 module.exports = DocPreprocessor;

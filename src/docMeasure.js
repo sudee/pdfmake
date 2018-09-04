@@ -229,7 +229,7 @@ DocMeasure.prototype.measureToc = function (node) {
 		var lineStyle = item._textNodeRef.tocStyle || textStyle;
 		var lineMargin = item._textNodeRef.tocMargin || textMargin;
 		body.push([
-			{text: item._textNodeRef.text, alignment: 'left', style: lineStyle, margin: lineMargin},
+			{text: item._textNodeRef.text, alignment: 'left', style: lineStyle, margin: lineMargin, _tocItemRef: item._nodeRef},
 			{text: '00000', alignment: 'right', _tocItemRef: item._nodeRef, style: numberStyle, margin: [0, lineMargin[1], 0, lineMargin[3]]}
 		]);
 	}

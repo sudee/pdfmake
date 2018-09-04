@@ -377,24 +377,28 @@ function renderLine(line, x, y, pdfKitDoc) {
 
 		var pageNumber = _pageNodeRef.positions[0].pageNumber.toString();
 
-		inline.text = pageNumber;
-		inline.linkToPage = pageNumber;
-		newWidth = textTools.widthOfString(inline.text, inline.font, inline.fontSize, inline.characterSpacing, inline.fontFeatures);
-		diffWidth = inline.width - newWidth;
-		inline.width = newWidth;
+		if (inline.text === "00000") {
+			inline.text = pageNumber;
+			inline.linkToPage = pageNumber;
+			newWidth = textTools.widthOfString(inline.text, inline.font, inline.fontSize, inline.characterSpacing, inline.fontFeatures);
+			diffWidth = inline.width - newWidth;
+			inline.width = newWidth;
 
-		switch (inline.alignment) {
-			case 'right':
+			switch (inline.alignment) {
+				case 'right':
 				inline.x += diffWidth;
 				break;
-			case 'center':
+				case 'center':
 				inline.x += diffWidth / 2;
 				break;
+			}
+		} else {
+			inline.linkToPage = pageNumber;
 		}
 	}
 
 	if (line._pageNodeRef) {
-		preparePageNodeRefLine(line._pageNodeRef, line.inlines[0]);
+		line.inlines.forEach(inlineNew => preparePageNodeRefLine(line._pageNodeRef, inlineNew));
 	}
 
 	var anchorPageNumber;
